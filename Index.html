@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Private Stream</title>
-    <!-- Подключаем Telegram WebApp -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root { --bg:#0e0e10; --header:#18181b; --txt:#efeff1; --hint:#adadb8; --accent:#9147ff; --red:#eb0400; }
@@ -15,7 +14,6 @@
         video { width:100%; height:100%; object-fit:cover; display:none; } 
         
         .overlay-screen { position:absolute; inset:0; background:rgba(14,14,16,0.98); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:50; text-align:center; padding:20px; transition:opacity .3s; }
-        /* Убираем тяжелый blur для слабых телефонов */
         
         .pay-btn { display:block; width:100%; max-width:280px; padding:14px 24px; border-radius:6px; font-size:14px; font-weight:700; text-decoration:none; text-align:center; margin-top:12px; cursor:pointer; border:none; transition:transform .1s; }
         .pay-btn.primary { background:var(--accent); color:white; box-shadow:0 4px 15px rgba(145,71,255,.4); }
@@ -27,23 +25,17 @@
         .top-overlay { position:absolute; top:16px; left:16px; pointer-events:none; z-index:10; opacity:0; transition:opacity .5s; }
         .badge { padding:4px 8px; border-radius:4px; font-size:12px; font-weight:700; text-transform:uppercase; background:var(--red); color:white; display:flex; align-items:center; gap:6px;}
         
-        /* ЧАТ - ПОЛНОСТЬЮ ТЕМНЫЙ ПРИ БЛОКИРОВКЕ */
         .chat-container { 
             height:45%; background:var(--bg); display:flex; flex-direction:column; 
             border-top:1px solid rgba(255,255,255,.05); flex-shrink:0; 
             transition: all 0.4s ease;
         }
         .chat-container.disabled { 
-            background: #000; 
-            opacity: 0; 
-            pointer-events: none; 
-            border-top-color: transparent;
+            background: #000; opacity: 0; pointer-events: none; border-top-color: transparent;
         }
         .chat-container.disabled .chat-header,
         .chat-container.disabled .chat-messages,
-        .chat-container.disabled .input-area { 
-            display: none !important; 
-        }
+        .chat-container.disabled .input-area { display: none !important; }
         
         .chat-header { padding:12px 16px; background:var(--header); font-size:13px; font-weight:600; color:var(--txt); border-bottom:1px solid rgba(255,255,255,.05); display:flex; justify-content:space-between; align-items:center; }
         .chat-messages { flex:1; overflow-y:auto; padding:12px 16px; display:flex; flex-direction:column; gap:6px; -webkit-mask-image:linear-gradient(to bottom,transparent,black 10%); mask-image:linear-gradient(to bottom,transparent,black 10%); }
@@ -78,8 +70,6 @@
         <div class="overlay-screen" id="paywallScreen" style="display:none;">
             <div class="title">🔒 Стример ушел в приват</div>
             <div class="desc">Для получения доступа напишите мне в Telegram.</div>
-            
-            <!-- УБРАН SESSION ID, ОСТАЛАСЬ ТОЛЬКО КНОПКА -->
             <a href="#" class="pay-btn primary" id="tgLink" target="_blank">✈️ Написать в Telegram</a>
         </div>
 
@@ -102,7 +92,7 @@
     </div>
 
 <script>
-    // ⚠️ НАСТРОЙКИ
+    // ⚠️ НАСТРОЙКИ ВТОРОЙ ТРАНСЛЯЦИИ
     const VIDEO_URL = 'https://myprivatestream.b-cdn.net/video_2026-11-25_23-40-43.mp4';
     const TG_USERNAME = 'Hsusisehv'; 
     const FREE_TIME = 60; 
@@ -124,7 +114,6 @@
     // === ЛОГИКА СЧЕТЧИКА ЗРИТЕЛЕЙ (30-50) ===
     let viewers = Math.floor(Math.random() * 10) + 35;
     document.getElementById('viewerCount').innerText = viewers;
-
     setInterval(() => {
         const change = Math.floor(Math.random() * 7) - 3; 
         viewers += change;
@@ -166,12 +155,19 @@
         v.src = VIDEO_URL;
         v.style.display = 'block';
         
-        // АДАПТАЦИЯ ПОД ЯНДЕКС/МОБИЛЬНЫЕ: Запуск только после взаимодействия
-        v.play().catch(e => {
-            console.log("Autoplay blocked, waiting for interaction");
-            // Если автоплей заблокирован, ждем первого клика по экрану
-            document.body.addEventListener('click', () => v.play(), {once:true});
-            document.body.addEventListener('touchstart', () => v.play(), {once:true});
+        // ЗАПУСК СО ЗВУКОМ: Сначала muted (для автоплея), потом включаем
+        v.play().then(() => {
+            setTimeout(() => {
+                v.muted = false;
+                v.volume = 0.7;
+            }, 500);
+        }).catch(e => {
+            console.log("Autoplay blocked");
+            document.body.addEventListener('click', () => {
+                v.muted = false;
+                v.volume = 0.7;
+                v.play();
+            }, {once:true});
         });
         
         document.getElementById('badges').style.opacity = '1';
@@ -198,35 +194,29 @@
 
     function showPaywall() {
         document.getElementById('streamVideo').style.display = 'none';
-        
-        // Формируем ссылку на ТГ БЕЗ Session ID
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
         const tgProto = isMobile ? 'tg' : 'https';
         const prefill = encodeURIComponent("Привет! Хочу получить доступ к приватной трансляции.");
-        
         document.getElementById('tgLink').href = `${tgProto}://resolve?domain=${TG_USERNAME}&text=${prefill}`;
-        
         document.getElementById('paywallScreen').style.display = 'flex';
         document.getElementById('badges').style.opacity = '0.3';
         document.getElementById('chatContainer').classList.add('disabled');
     }
 
-    // === УМНЫЙ ЧАТ С ПЕРСОНАЛИЗИРОВАННЫМИ ФРАЗАМИ ===
-    // У каждого бота свой уникальный набор сообщений. Никаких повторов!
+    // === УМНЫЙ ЧАТ ПОД СЦЕНАРИЙ МЖМ (2 ДЕВОЧКИ + 1 ПАРЕНЬ) ===
     const bots = [
-        {n:'Тимур', msgs:['Я тебе отправил кеш','Перевел тебе, глянь','Скинь номер карты','Жду подтверждения']},
-        {n:'Анд', msgs:['Ответь в тг','Проверь смс','Напиши мне','Давай в лс']},
-        {n:'Макс', msgs:['Хочу в приват','Приезжай ко мне в спб','Могу приехать, ты где?','Когда будешь?']},
-        {n:'Дэн', msgs:['Проверь сообщения','Отправил донат','Где ссылка на оплату?','Хочу смотреть']},
-        {n:'Костян', msgs:['Огонь просто','Красотка 🔥','Лайк 👍','Топ контент']},
-        {n:'Алекс', msgs:['Давай в личку?','Жду ответа в телеге','Напиши мне в лс','Есть время?']}
+        {n:'Рустам', msgs:['Король просто','Как он вывозит двух?','Мечта мужика','Хочу так же']},
+        {n:'Леха', msgs:['Очередь кто следующий?','Обе сразу?','Жесть какая','Не завидую ему']},
+        {n:'Саня', msgs:['Везунчик','Я бы на его месте','Две сестры что ли?','Огонь контент']},
+        {n:'Дима', msgs:['Сколько стоит такая?','Хочу в такую вписку','Реально две?','Запись есть?']},
+        {n:'Макс', msgs:['Приезжай ко мне так','Обслуживают как короля','Топ вечеринка','Хочу повтор']},
+        {n:'Артем', msgs:['Какая очередь?','Он вообще живой?','Две красотки','Завидую молча']}
     ];
     
     let lastBotIndex = -1;
 
     function runBots() {
         setTimeout(()=>{
-            // Выбираем случайного бота, но не того же самого подряд
             let botIndex;
             do {
                 botIndex = Math.floor(Math.random()*bots.length);
@@ -234,9 +224,7 @@
             lastBotIndex = botIndex;
 
             const bot = bots[botIndex];
-            // Берем случайную фразу ИМЕННО ЭТОГО бота
             const m = bot.msgs[Math.floor(Math.random()*bot.msgs.length)];
-
             render(bot.n, m);
             runBots();
         }, Math.random()*4000+2000);
